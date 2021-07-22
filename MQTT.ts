@@ -1,4 +1,3 @@
-
 const EMMQTT_BOOL_TYPE_IS_TRUE = true
 const EMMQTT_BOOL_TYPE_IS_FALSE = false
 const EMMQTT_ERROR_TYPE_IS_SUCCE = 0
@@ -54,14 +53,11 @@ namespace MQTT {
     function emmqttClearTxBuffer(): void {
         return
     }
-
-
-
     function emmqttWriteString(text: string): void {
         serial.writeString(text)
     }
-
-
+    
+    
     function Em_mqtt_icon_display(): void {
         switch (EMMQTT_MQTT_ICON) {
             case 1: {
@@ -101,14 +97,15 @@ namespace MQTT {
             EMMQTT_SERIAL_RX,
             BaudRate.BaudRate9600
         )
-        serial.setTxBufferSize(3000);
+        serial.setTxBufferSize(2000);
         serial.setRxBufferSize(2000);
-        // obloqWriteString("\r")
-        item = serial.readString()
+        // emmqttWriteString("\r")
+        // item = serial.readString()
         EMMQTT_SERIAL_INIT = EMMQTT_BOOL_TYPE_IS_TRUE
         emmqttClearRxBuffer();
         // serial.clearRxBuffer();
         emmqttClearTxBuffer();
+	     
         // serial.clearTxBuffer();
         // onEvent();
     }
@@ -165,10 +162,9 @@ namespace MQTT {
         MQTT_SERVER_PORT = serverPort;
         emmqtt_connect_iot("mqtt");
     }
+	
 
-    
-
-     //% blockId=mqtt_publish_basic block="MQTT向话题(TOPIC) %topic 发送数据 %data"
+    //% blockId=mqtt_publish_basic block="MQTT向话题(TOPIC) %topic 发送数据 %data"
     //% weight=100
     //% subcategory="MQTT模式"
     export function em_mqtt_publish_basic(topic: string, data: string): void {
@@ -256,18 +252,14 @@ namespace MQTT {
         basic.pause(1000);
         // serial.writeString("AT+CIFSR\r\n");
     }
-
+    
     function emmqtt_connect_http(): void {
         if (!EMMQTT_SERIAL_INIT) {
             emmqtt_serial_init()
         }
         serial.writeString("AT+CIPSTART=\"TCP\",\"" + MQTT_SERVER_IP + "\"," + MQTT_SERVER_PORT + "\r\n");
         basic.pause(1000);
-        
     }
-
-
-
 
     function emmqtt_connect_iot(type: string): number {
         EMMQTT_MQTT_ICON = 1
@@ -302,11 +294,13 @@ namespace MQTT {
     }
 
     let count = 0;
-    serial.onDataReceived("\n", function () {
+    let strArr1:any[] = [];
+    
+	serial.onDataReceived("\n", function () {
         let Emqtt_message_str = serial.readString();
         let size = Emqtt_message_str.length;
         let item: string = Emqtt_message_str + "";
-        // basic.showString(item);
+        
         // emmqttClearRxBuffer();
         if (item.indexOf("WIFI CONNECTED", 0) != -1) {
             EMMQTT_ANSWER_CMD = "MqttWifiConneted"
@@ -326,27 +320,27 @@ namespace MQTT {
             EMMQTT_ANSWER_CMD = "SubOk"
             EMMQTT_ANSWER_CONTENT = EMMQTT_STR_TYPE_IS_NONE
             return
-        }else if (item.indexOf("STATUS:3", 0) != -1){
+        }else if (item.indexOf("STATUS:3", 0) != -1 || item.indexOf('ALREADY CONNECTED') != -1){
             HTTP_CONNECT_STATUS = EMMQTT_BOOL_TYPE_IS_TRUE
+	       // basic.showIcon(IconNames.Yes)
+           // basic.pause(1000);
         }else if (item.indexOf("STATUS:4", 0) != -1) {
             HTTP_CONNECT_STATUS = EMMQTT_BOOL_TYPE_IS_FALSE
-        }else if (item.indexOf("HTTP/1.1 200 OK") != -1) {
+        }else if (item.indexOf("HTTP/1.1 200", 0) != -1) {
             count = 1;
             // basic.showNumber(0);
             // let dataArr = item.split("\r\n\r\n");
             // basic.showNumber(dataArr.length);
             // let resultStr = dataArr[dataArr.length - 1];
+            
+        } else if (item.indexOf('AT', 0) != -1) {
+			
+		}else {
+			// basic.showNumber(count);
             // basic.showString(item);
-        }else if(item == '0'){
-            count = 0;
-        } 
-         else {
-             if(count > 0){
-                // count++;
-                // basic.showNumber(count);
-                HTTP_RESPONSE_STR += item + "emok";
-             }
-            //  basic.showString(item);
+            if(count > 0){
+				HTTP_RESPONSE_STR += item + "emok"; 
+            }
             return
         }
     });
@@ -417,6 +411,11 @@ namespace MQTT {
         basic.pause(50);
         serial.writeString("AT+CIPSTART=\"TCP\",\"" + MQTT_SERVER_IP + "\"," + MQTT_SERVER_PORT + "\r\n");
         basic.pause(50);
+		strArr1 = [];
+		count = 0;
+	    emmqttClearRxBuffer();
+        // serial.clearRxBuffer();
+        emmqttClearTxBuffer();
         return HTTP_RESULT;
         // return "";
     }
@@ -438,13 +437,21 @@ namespace MQTT {
         // serial.setRxBufferSize(200);
         serial.writeString(requestStr);
         basic.pause(1000);
-       
-        let arr = HTTP_RESPONSE_STR.split("emok");
-        // basic.showNumber(arr.length);
-        if(arr.length >  4){
-            let result = arr[arr.length - 4];
-            HTTP_RESULT = (result.substr(0, result.length - 2));
-        } 
+        
+		if (HTTP_RESPONSE_STR.indexOf("Content-Type:", 0) != -1) {
+            let arr = HTTP_RESPONSE_STR.split("emok\r");
+            if (arr.length > 2) {
+                let resultStr = arr[1];
+                let resultArr = resultStr.split("emok");
+                let dataLength = resultArr[1].replace("\r", '');
+                let data = resultArr[2].replace("\r", '');
+                dataLength = dataLength.substr(0, dataLength.length - 1);
+                if (dataLength == (data.length - 1).toString()) {   // 判断数据长度值 和 数据的真是长度是否一致
+                    HTTP_RESULT = data.substr(0, data.length - 1);
+                }
+            }
+		}
+
         HTTP_RESPONSE_STR = EMMQTT_STR_TYPE_IS_NONE;
     }
     
